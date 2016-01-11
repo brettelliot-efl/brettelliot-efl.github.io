@@ -25,6 +25,7 @@
         }
 
         var assessmentKey = getURLParameter('assessmentKey');
+        console.log("AssessmentKey=", assessmentKey);
 
         // Promise.longStackTraces();
         EFLPlayer.init();
@@ -33,7 +34,6 @@
             target: 'journey',
             encryptorEndpoint: 'https://frozen-fjord-2016.herokuapp.com/',
             ajEndpoint: 'https://uat2.eflglobal.com/api/v2/applicant_journey/',
-            // assessmentKey: 'webDemo',
             assessmentKey: assessmentKey,
             moduleStyle: 'style/module.css',
             navigation: {
