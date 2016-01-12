@@ -1,1 +1,0 @@
-# applicant-journey-demo-web

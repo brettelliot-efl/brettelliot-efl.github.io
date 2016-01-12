@@ -100,6 +100,7 @@
 	        this.autoStart = true;
 	        this.currentModuleNumber = 0;
 	        this.currentStepProgress = 0;
+	        this.enableResumeSession = false;
 	        this.navigation = {
 	            logo: false,
 	            logoSrc: 'EFL_logo.png',
@@ -211,6 +212,10 @@
 	                this.setupNavigation(config.navigation);
 	            }
 	
+	            if (typeof config.enableResumeSession === 'boolean') {
+	                this.enableResumeSession = config.enableResumeSession;
+	            }
+	
 	            if (typeof config.localization === 'object') {
 	                this.L20n = new _localizationJs2['default'](config.localization);
 	            } else {
@@ -219,7 +224,8 @@
 	
 	            this.api = new _apiJs2['default']({
 	                encrypterUrl: this.encryptorEndpoint,
-	                backendUrl: this.ajEndpoint
+	                backendUrl: this.ajEndpoint,
+	                enableResumeSession: this.enableResumeSession
 	            });
 	
 	            var createNavigationPromise = this.createNavigation(this.target);
@@ -1081,28 +1087,21 @@
 	    function Session() {
 	        var _ref = arguments.length <= 0 || arguments[0] === undefined ? {} : arguments[0];
 	
-	        var authorizationToken = _ref.authorizationToken;
-	        var requestToken = _ref.requestToken;
 	        var uid = _ref.uid;
 	
 	        _classCallCheck(this, Session);
 	
-	        if (!authorizationToken || !requestToken || !uid) {
+	        if (!uid) {
 	            throw new Error('Session: missing params');
 	        }
-	        this.authorizationToken = authorizationToken;
-	        this.requestToken = requestToken;
 	        this.uid = uid;
 	        this.save = this.save.bind(this);
-	        this.save();
 	    }
 	
 	    _createClass(Session, [{
 	        key: 'save',
 	        value: function save() {
 	            window.localStorage.setItem('session', JSON.stringify({
-	                authorizationToken: this.authorizationToken,
-	                requestToken: this.requestToken,
 	                uid: this.uid
 	            }));
 	        }
@@ -1110,11 +1109,12 @@
 	        key: 'load',
 	        value: function load() {
 	            var session = JSON.parse(window.localStorage.getItem('session'));
-	            if (session) {
-	                return new Session(session);
-	            } else {
-	                throw new Error('No session data.');
-	            }
+	            return session ? new Session(session) : null;
+	        }
+	    }, {
+	        key: 'clear',
+	        value: function clear() {
+	            window.localStorage.removeItem('session');
 	        }
 	    }]);
 	
@@ -1273,20 +1273,28 @@
 	                    _this.authorizationToken = response.authorizationToken;
 	                    _this.requestToken = response.requestToken;
 	
-	                    try {
-	                        _this.session = Session.load();
-	                        return _this._resumeSession({
-	                            authorizationToken: _this.authorizationToken,
-	                            requestToken: _this.requestToken,
-	                            sessionId: _this.session.uid,
-	                            applicant: {}
-	                        });
-	                    } catch (e) {
+	                    var startSession = function startSession() {
 	                        return _this._startSession({
 	                            authorizationToken: _this.authorizationToken,
 	                            requestToken: _this.requestToken,
 	                            applicationName: applicationName
 	                        });
+	                    };
+	
+	                    if (_this.config.enableResumeSession) {
+	                        try {
+	                            _this.session = Session.load();
+	                            return _this._resumeSession({
+	                                authorizationToken: _this.authorizationToken,
+	                                requestToken: _this.requestToken,
+	                                sessionId: _this.session.uid,
+	                                applicant: {}
+	                            });
+	                        } catch (e) {
+	                            return startSession();
+	                        }
+	                    } else {
+	                        return startSession();
 	                    }
 	                }).then(function (response) {
 	                    _this.session = new Session({
@@ -1294,6 +1302,9 @@
 	                        requestToken: _this.requestToken,
 	                        uid: response.data.uid
 	                    });
+	                    if (_this.config.enableResumeSession) {
+	                        _this.session.save();
+	                    }
 	                    return _this._startApplication({
 	                        authorizationToken: _this.authorizationToken,
 	                        requestToken: _this.requestToken,
@@ -1340,6 +1351,8 @@
 	    }, {
 	        key: 'finishApplication',
 	        value: function finishApplication() {
+	            var _this2 = this;
+	
 	            var _ref3 = arguments.length <= 0 || arguments[0] === undefined ? {} : arguments[0];
 	
 	            var sequence = _ref3.sequence;
@@ -1349,6 +1362,9 @@
 	                requestToken: this.requestToken,
 	                sessionId: this.session.uid,
 	                sequence: sequence
+	            }).then(function () {
+	                Session.clear();
+	                _this2.session = null;
 	            });
 	        }
 	    }, {
